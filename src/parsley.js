@@ -23,24 +23,34 @@ const pipe = stack(
 )(id);
 const collect = stack((head, tail) => [...tail, head])([]);
 const bind = stack((head, tail) => tail.bind(null, head));
-const smap = stack(
+const map = stack(
   (head, tail) => (key) => (head[0] === key ? head[1] : tail?.(key)),
 )();
 
-// const map = (f, arr) => {
-//   const target = [];
-//   const push = Array.prototype.push.bind(target);
-//   arr.forEach((...args) => push(f.apply(target, args)));
-//   return target;
-// };
+const handleRecursion =
+  (type) =>
+  (path, code, ...args) => {
+    const match = path()(type);
+    if (match && match.code === code) {
+      return match.node;
+    }
+    const [node, set] = recursiveNode();
+    const result = type(path([type, { code, node }]), code, ...args);
+    set(result);
+    return result;
+  };
 
-// const mergeMap = (f, target = []) => {
-//   const push = Array.prototype.push.bind(target);
-//   return [
-//     target,
-//     (arr) => arr.forEach((...args) => push(f.apply(target, args))),
-//   ];
-// };
+const recursiveNode = (target) => [
+  new Proxy(
+    {},
+    {
+      get(_, prop) {
+        return target[prop];
+      },
+    },
+  ),
+  (node) => (target = node),
+];
 
 const wrap = (fn, handler) =>
   function (...args) {
@@ -131,7 +141,7 @@ export const createGrammar = () => {
     Object.values(nodes).forEach((type) => {
       console.log(`TYPE: ${type.name}`, type);
     });
-    return (code) => root.call(pipe, code);
+    return (code) => root.call(pipe, code, map);
   };
   grammarInitializers.set(grammar, init);
 
@@ -166,13 +176,13 @@ export const Token = (...tokens) =>
   };
 
 export const Maybe = (node) =>
-  function (code) {
+  function (code, prev) {
     const next = node.call(pipe, code);
-    return next.length ? next : [{ code, next: null }];
+    return next.length ? next : [{ prev, code, next: null }];
   };
 
 export const Match = (...nodes) =>
-  function (code) {
+  function (code, prev) {
     const binder = bind(this());
     return nodes
       .reduce(
@@ -182,33 +192,34 @@ export const Match = (...nodes) =>
               return { node, next, code, ctx: ctx(next) };
             }),
           ),
-        [{ code, ctx: binder }],
+        [{ prev, code, ctx: binder }],
       )
       .map((x) => ({
+        prev,
         code: x.code,
         next: x.ctx()(),
       }));
   };
 
 export const Either = (...nodes) =>
-  function (code) {
-    return nodes.map((node) => node.call(this, code));
+  function (code, prev) {
+    return nodes.map((node) => node.call(this, code, prev));
   };
 
-const walk = (node, finalizer, code, list) => {
+const walk = (node, finalizer, code, list, prev) => {
   const results = node.call(pipe, code);
   return results.length
     ? results.flatMap((result) =>
         result.code === code
           ? []
-          : walk(node, finalizer, result.code, list(result.next)),
+          : walk(node, finalizer, result.code, list(result.next), prev),
       )
-    : [{ code, next: finalizer()(list()) }];
+    : [{ prev, code, next: finalizer()(list()) }];
 };
 
 export const List = (node) =>
-  function (code) {
-    return walk(node, this, code, collect);
+  function (code, prev) {
+    return walk(node, this, code, collect, prev);
   };
 
 // const initOperators = operators => () => operators
