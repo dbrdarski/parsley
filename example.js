@@ -9,7 +9,7 @@ import {
   Maybe,
   log,
   // Operation, Operator, createOperator
-} from "./langparse";
+} from "/src/parsley";
 
 const $ = createGrammar();
 const $$ = createGrammar();
