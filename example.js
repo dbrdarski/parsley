@@ -9,6 +9,7 @@ import {
   Maybe,
   $next,
   $token,
+  $grammar,
 } from "/src/parsley";
 
 globalThis.$next = (init) => {
@@ -20,21 +21,28 @@ globalThis.$token = $token;
 
 const $ = createGrammar();
 
+// const $$ = $grammar(x => x, (root) => (code) => root.call(pipe, code, map)).createGrammar();
+// $$(({ useRoot }) => useRoot($$.Statement));
+// $$.Statement = Type(() => $token("na"));
+// globalThis.$$ = $$;
+
 $(({ useRoot }) => useRoot($.File));
 
 $.File = Type(
   () => $.Program,
   (x) => ({ type: "File", program: x }),
 );
+
 $.Program = Type(
   () => List($.Statement),
   (x) => ({ type: "Program", body: x }),
 );
-// $.Statement = Type(() => Either($.UnaryExpression, $.BinaryExpression), x => ({ type: "Statement", expression: x }))
+
 $.Statement = Type(
   () => Match($.Expression, Maybe(Token(";"))),
   (expression) => ({ type: "Statement", expression }),
 );
+
 $.Operation = Type(
   () =>
     Match(
@@ -49,6 +57,7 @@ $.Operation = Type(
     operands,
   }),
 );
+
 $.BinaryExpression = Type(
   () =>
     Match(
@@ -64,6 +73,7 @@ $.BinaryExpression = Type(
     right,
   }),
 );
+
 $.Sequence = Type(
   () => Match(Token("("), List($.Expression), Token(")")),
   (_, value) => ({
@@ -71,6 +81,7 @@ $.Sequence = Type(
     sequence: value,
   }),
 );
+
 $.Expression = Type(
   () =>
     Either(

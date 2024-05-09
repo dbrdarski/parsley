@@ -1,6 +1,6 @@
 import { apply, lazyTransform, wrap, pipe, map } from "./utils";
 
-export const grammar = (transform) => {
+export const grammar = (transform, init) => {
   const createGrammarProxy = ($) => {
     const nodes = {};
     return {
@@ -55,6 +55,7 @@ export const grammar = (transform) => {
         console.log(`TYPE: ${type.name}`, type);
       });
       return (code) => root.call(pipe, code, map);
+      return init(root);
     };
     grammarInitializers.set(grammar, init);
 
