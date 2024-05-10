@@ -1,47 +1,59 @@
 import {
-  initGrammar,
-  createGrammar,
-  Type,
-  List,
-  Either,
-  Match,
-  Token,
-  Maybe,
-  $next,
-  $token,
-  $grammar,
-} from "/src/parsley";
+  initGrammar, createGrammar,
+  Type, List, Either, Match, Token, Maybe,
+  $next, $token, $grammar,
+} from "/src/parsley"
 
-globalThis.$next = (init) => {
-  const [target, add] = $next(init);
-  return [target, (next, code) => add({ next, code })];
-};
+import { pipe, map } from "./src/utils"
+const $wrap = (fn, handler) =>
+  function (...args) {
+    return fn.apply(this?.(handler), args)
+  }
 
-globalThis.$token = $token;
+const $$next = (globalThis.$next = (init) => {
+  const [target, add] = $next(init)
+  return [target, (next, code) => add({ next, code })]
+})
 
-const $ = createGrammar();
+const $new = fn => {
+  const [target, next] = $$next()
+  fn(next)
+  return target
+}
 
-// const $$ = $grammar(x => x, (root) => (code) => root.call(pipe, code, map)).createGrammar();
-// $$(({ useRoot }) => useRoot($$.Statement));
-// $$.Statement = Type(() => $token("na"));
-// globalThis.$$ = $$;
+// globalThis.$token = $token
 
-$(({ useRoot }) => useRoot($.File));
+const $ = createGrammar()
+
+
+const $2 = $grammar(
+  (definition, handler) => $wrap(definition, handler),
+  (root) => (code) => $new((next) => root.call(pipe, code, next, map)),
+)
+
+const $$ = $2.createGrammar()
+$$(({ useRoot }) => useRoot($$.Statement))
+
+$$.Statement = Type(() => $token("na"))
+
+globalThis.Q2 = $2.initGrammar($$)
+
+$(({ useRoot }) => useRoot($.File))
 
 $.File = Type(
   () => $.Program,
   (x) => ({ type: "File", program: x }),
-);
+)
 
 $.Program = Type(
   () => List($.Statement),
   (x) => ({ type: "Program", body: x }),
-);
+)
 
 $.Statement = Type(
-  () => Match($.Expression, Maybe(Token(";"))),
+  () => Match($.Expression, Maybe(Token(""))),
   (expression) => ({ type: "Statement", expression }),
-);
+)
 
 $.Operation = Type(
   () =>
@@ -56,7 +68,7 @@ $.Operation = Type(
     operator,
     operands,
   }),
-);
+)
 
 $.BinaryExpression = Type(
   () =>
@@ -72,7 +84,7 @@ $.BinaryExpression = Type(
     left,
     right,
   }),
-);
+)
 
 $.Sequence = Type(
   () => Match(Token("("), List($.Expression), Token(")")),
@@ -80,7 +92,7 @@ $.Sequence = Type(
     type: "Sequence",
     sequence: value,
   }),
-);
+)
 
 $.Expression = Type(
   () =>
@@ -94,17 +106,17 @@ $.Expression = Type(
       $.BinaryExpression,
     ),
   (node) => node,
-);
+)
 
 $.NumericLiteral = Type(
   () => Token(/[0-9]+/),
   (x) => ({ type: "NumericLiteral", value: x }),
-);
+)
 
 $.Identifier = Type(
   () => Token(/[a-zA-Z]+[a-zA-Z0-9]*/),
   (x) => ({ type: "Identifier", id: x }),
-);
+)
 
 // $.LogicalExpression = Type(() => Operator(({ Operator, Operand }) => Match(
 //   Operator(Token("&&", "||")),
@@ -123,4 +135,4 @@ $.Identifier = Type(
 //   expression
 // }))
 
-export const parser = (globalThis.parser = initGrammar($));
+export const parser = (globalThis.parser = initGrammar($))
